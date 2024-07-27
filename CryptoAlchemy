@@ -1,0 +1,64 @@
+import json
+import requests
+import pandas as pd
+import matplotlib.pyplot as plt
+from datetime import datetime
+
+class CryptoAlchemy:
+    def __init__(self, coingecko_api_url: str = 'https://api.coingecko.com/api/v3'):
+        self.api_url = coingecko_api_url
+
+    def get_price_data(self, coin_id: str, vs_currency: str = 'usd', days: int = 30) -> pd.DataFrame:
+        url = f"{self.api_url}/coins/{coin_id}/market_chart?vs_currency={vs_currency}&days={days}"
+        response = requests.get(url)
+        data = response.json()
+
+        prices = data['prices']
+        df = pd.DataFrame(prices, columns=['timestamp', 'price'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        return df
+
+    def plot_price_data(self, coin_id: str, vs_currency: str = 'usd', days: int = 30):
+        df = self.get_price_data(coin_id, vs_currency, days)
+        plt.figure(figsize=(12, 6))
+        plt.plot(df['timestamp'], df['price'])
+        plt.title(f'{coin_id.capitalize()} Price over the last {days} days')
+        plt.xlabel('Date')
+        plt.ylabel(f'Price ({vs_currency.upper()})')
+        plt.grid(True)
+        plt.show()
+
+    def get_portfolio_value(self, portfolio: dict, vs_currency: str = 'usd') -> float:
+        total_value = 0
+        for coin_id, amount in portfolio.items():
+            url = f"{self.api_url}/simple/price?ids={coin_id}&vs_currencies={vs_currency}"
+            response = requests.get(url)
+            price = response.json()[coin_id][vs_currency]
+            total_value += price * amount
+        return total_value
+
+    def get_market_data(self, vs_currency: str = 'usd', order: str = 'market_cap_desc', per_page: int = 10, page: int = 1):
+        url = f"{self.api_url}/coins/markets?vs_currency={vs_currency}&order={order}&per_page={per_page}&page={page}"
+        response = requests.get(url)
+        return response.json()
+
+# Example Usage
+if __name__ == "__main__":
+    crypto_alchemy = CryptoAlchemy()
+
+    # Fetch and Plot Price Data
+    coin_id = 'bitcoin'
+    crypto_alchemy.plot_price_data(coin_id, days=30)
+
+    # Get Portfolio Value
+    portfolio = {
+        'bitcoin': 0.1,
+        'ethereum': 1.0,
+        'litecoin': 5.0
+    }
+    portfolio_value = crypto_alchemy.get_portfolio_value(portfolio)
+    print("Portfolio Value (USD):", portfolio_value)
+
+    # Get Market Data
+    market_data = crypto_alchemy.get_market_data(per_page=5)
+    print("Market Data:", json.dumps(market_data, indent=4))
